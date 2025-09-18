@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "ScamChecker",
+    "slug": "ScamChecker",
+    "version": "1.0.0",
+    "platforms": ["ios"],
+    "ios": {
+      "bundleIdentifier": "com.yourapp.scamchecker"
+    },
+    "scheme": "scamchecker",
+    "developmentClient": {
+      "silentLaunch": false
+    }
+  }
+}
