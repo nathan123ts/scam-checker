@@ -7,8 +7,13 @@ This directory contains Supabase Edge Functions for the ScamChecker app.
 ### analyze-screenshot
 - **Purpose**: Analyzes screenshot images for potential scams using OpenAI Vision API
 - **Endpoint**: `POST /functions/v1/analyze-screenshot`
-- **Input**: `{ screenshotUrl: string }`
+- **Input**: `{ screenshotUrl: string }` (publicly accessible image URL)
 - **Output**: `{ analysisId: string, result: string, status: string }`
+- **Features**:
+  - GPT-4 Vision analysis for scam detection
+  - Detailed fraud pattern recognition
+  - Comprehensive security assessment
+  - Error handling and validation
 
 ## Development
 
