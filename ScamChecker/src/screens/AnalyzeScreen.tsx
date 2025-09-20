@@ -1,13 +1,19 @@
 import React, { useEffect } from 'react'
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native'
 import { useSelector, useDispatch } from 'react-redux'
+import { useNavigation } from '@react-navigation/native'
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootState, AppDispatch } from '../store'
 import { setLoading, setResult, setError } from '../store/analysisSlice'
 import { LoadingSpinner } from '../components'
 import { analyzeScreenshot } from '../services'
+import { RootStackParamList } from '../navigation'
+
+type AnalyzeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Analyze'>
 
 export const AnalyzeScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>()
+  const navigation = useNavigation<AnalyzeScreenNavigationProp>()
   const { isLoading, result, error, analysisId } = useSelector(
     (state: RootState) => state.analysis
   )
@@ -37,6 +43,11 @@ export const AnalyzeScreen: React.FC = () => {
       }))
       
       console.log('✅ Analysis completed in AnalyzeScreen')
+      
+      // Navigate to results screen after successful analysis
+      setTimeout(() => {
+        navigation.navigate('Results')
+      }, 1000) // Small delay to show success state briefly
       
     } catch (error) {
       console.error('❌ Analysis failed in AnalyzeScreen:', error)

@@ -1,5 +1,5 @@
 // Navigation exports
-// This file will export navigation configuration
+// This file exports navigation configuration
 
-// TODO: Uncomment when navigation is created
-// export { default as AppNavigator } from './AppNavigator';
+export { AppNavigator } from './AppNavigator'
+export type { RootStackParamList } from './AppNavigator'

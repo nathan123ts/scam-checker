@@ -1,16 +1,22 @@
 import React from 'react'
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native'
 import { useSelector, useDispatch } from 'react-redux'
+import { useNavigation } from '@react-navigation/native'
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootState, AppDispatch } from '../store'
 import { clearAnalysis } from '../store/analysisSlice'
+import { RootStackParamList } from '../navigation'
+
+type JsonResultScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Results'>
 
 export const JsonResultScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>()
+  const navigation = useNavigation<JsonResultScreenNavigationProp>()
   const { result, analysisId } = useSelector((state: RootState) => state.analysis)
 
   const handleStartNewAnalysis = () => {
     dispatch(clearAnalysis())
-    // In a real app with navigation, this would navigate back to AnalyzeScreen
+    navigation.navigate('Analyze')
   }
 
   // Format the analysis result for better readability
