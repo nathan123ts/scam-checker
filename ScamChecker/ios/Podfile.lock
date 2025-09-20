@@ -4,7 +4,7 @@ PODS:
   - EXJSONUtils (0.15.0)
   - EXManifests (1.0.8):
     - ExpoModulesCore
-  - Expo (54.0.8):
+  - Expo (54.0.9):
     - ExpoModulesCore
     - hermes-engine
     - RCTRequired
@@ -29,7 +29,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - ExpoAsset (12.0.8):
+  - ExpoAsset (12.0.9):
     - ExpoModulesCore
   - ExpoFileSystem (19.0.14):
     - ExpoModulesCore
@@ -37,7 +37,7 @@ PODS:
     - ExpoModulesCore
   - ExpoKeepAwake (15.0.7):
     - ExpoModulesCore
-  - ExpoModulesCore (3.0.16):
+  - ExpoModulesCore (3.0.17):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1817,7 +1817,7 @@ DEPENDENCIES:
   - EXManifests (from `../node_modules/expo-manifests/ios`)
   - Expo (from `../node_modules/expo`)
   - ExpoAsset (from `../node_modules/expo/node_modules/expo-asset/ios`)
-  - ExpoFileSystem (from `../node_modules/expo/node_modules/expo-file-system/ios`)
+  - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo/node_modules/expo-font/ios`)
   - ExpoKeepAwake (from `../node_modules/expo/node_modules/expo-keep-awake/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
@@ -1904,7 +1904,7 @@ EXTERNAL SOURCES:
   ExpoAsset:
     :path: "../node_modules/expo/node_modules/expo-asset/ios"
   ExpoFileSystem:
-    :path: "../node_modules/expo/node_modules/expo-file-system/ios"
+    :path: "../node_modules/expo-file-system/ios"
   ExpoFont:
     :path: "../node_modules/expo/node_modules/expo-font/ios"
   ExpoKeepAwake:
@@ -2055,12 +2055,12 @@ SPEC CHECKSUMS:
   EXConstants: 59d46d25b89f88cc38291a56dbce4d550758f72d
   EXJSONUtils: 1d3e4590438c3ee593684186007028a14b3686cd
   EXManifests: 7469efed75d694ce3c43a6da9c6f3886f66d3c26
-  Expo: 9345a9b17ffd25a3301306870aa730f875d76a05
-  ExpoAsset: 4375a46b45b12bbfcf6efac8c8a33aebdb8ba12b
+  Expo: 625986ae25567f5ea79ef1055ae403af93f26d1b
+  ExpoAsset: 3c3b7dd9b1318846a02ef05ce420e63d542aeb9f
   ExpoFileSystem: adffad7d1f57f768ca7a5e3bf450312fb9ebd27a
   ExpoFont: d3e56c7cc03d9fd113b90a5513ad32b4bf46b0ff
   ExpoKeepAwake: 3f5e3ac53627849174f3603271df8e08f174ed4a
-  ExpoModulesCore: 41b2088fefeed07fca64e5b2ef7bc937030670fc
+  ExpoModulesCore: f313fe87974ea8019b334a5a5feb982e536925ce
   FBLazyVector: 9e0cd874afd81d9a4d36679daca991b58b260d42
   hermes-engine: 35c763d57c9832d0eef764316ca1c4d043581394
   RCTDeprecation: 7487d6dda857ccd4cb3dd6ecfccdc3170e85dcbc
