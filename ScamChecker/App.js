@@ -31,11 +31,13 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 5,
   },
+  testContainer: {
+    marginTop: 30,
+    alignItems: 'center',
+  },
   status: {
-    fontSize: 18,
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
   },
 });
