@@ -16,24 +16,5 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 5,
-    marginBottom: 30,
-  },
-  spinnerContainer: {
-    alignItems: 'center',
-    gap: 30,
-  },
+  // Styles removed - using AnalyzeScreen component
 });

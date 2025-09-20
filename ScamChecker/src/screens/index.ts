@@ -1,6 +1,6 @@
 // Screen exports
-// This file will export all screen components
+// This file exports all screen components
 
+export { AnalyzeScreen } from './AnalyzeScreen'
 // TODO: Uncomment when screens are created
-// export { default as AnalyzeScreen } from './AnalyzeScreen';
 // export { default as JsonResultScreen } from './JsonResultScreen';
