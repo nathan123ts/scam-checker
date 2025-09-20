@@ -2,6 +2,7 @@
 // Analyzes screenshot images using OpenAI Vision API
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 console.log("analyze-screenshot Edge Function loaded")
@@ -23,6 +24,46 @@ interface OpenAIResponse {
       content: string;
     };
   }>;
+}
+
+// Initialize Supabase client
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+// Database helper functions
+async function createAnalysisRecord(screenshotUrl: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('analysis_requests')
+    .insert({
+      screenshot_url: screenshotUrl,
+      created_at: new Date().toISOString()
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    console.error('Error creating analysis record:', error)
+    throw new Error(`Failed to create analysis record: ${error.message}`)
+  }
+
+  return data.id
+}
+
+async function updateAnalysisRecord(analysisId: string, result: string, durationMs: number): Promise<void> {
+  const { error } = await supabase
+    .from('analysis_requests')
+    .update({
+      openai_result: result,
+      completed_at: new Date().toISOString(),
+      analysis_duration_ms: durationMs
+    })
+    .eq('id', analysisId)
+
+  if (error) {
+    console.error('Error updating analysis record:', error)
+    throw new Error(`Failed to update analysis record: ${error.message}`)
+  }
 }
 
 async function analyzeImageWithOpenAI(imageUrl: string): Promise<string> {
@@ -132,15 +173,22 @@ serve(async (req: Request) => {
       )
     }
 
-    // Generate unique analysis ID
-    const analysisId = crypto.randomUUID()
-    console.log(`Starting analysis ${analysisId} for URL: ${screenshotUrl}`)
-
+    let analysisId: string | null = null
+    
     try {
-      // Call OpenAI Vision API to analyze the screenshot
+      // 1. Create analysis record in database
+      analysisId = await createAnalysisRecord(screenshotUrl)
+      console.log(`Created analysis record ${analysisId} for URL: ${screenshotUrl}`)
+
+      // 2. Call OpenAI Vision API to analyze the screenshot
+      const startTime = Date.now()
       const analysisResult = await analyzeImageWithOpenAI(screenshotUrl)
+      const duration = Date.now() - startTime
       
-      console.log(`Analysis ${analysisId} completed successfully`)
+      // 3. Update analysis record with results
+      await updateAnalysisRecord(analysisId, analysisResult, duration)
+      
+      console.log(`Analysis ${analysisId} completed successfully in ${duration}ms`)
 
       return new Response(
         JSON.stringify({
@@ -155,11 +203,11 @@ serve(async (req: Request) => {
       )
 
     } catch (analysisError) {
-      console.error(`Analysis ${analysisId} failed:`, analysisError)
+      console.error(`Analysis ${analysisId || 'unknown'} failed:`, analysisError)
       
       return new Response(
         JSON.stringify({
-          analysisId,
+          analysisId: analysisId || null,
           error: 'Analysis failed',
           message: analysisError.message,
           status: 'failed'
