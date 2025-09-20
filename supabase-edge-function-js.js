@@ -1,4 +1,4 @@
-// Edge Function: analyze-screenshot
+// Edge Function: analyze-screenshot (JavaScript version)
 // Analyzes screenshot images using OpenAI Vision API
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
@@ -13,44 +13,13 @@ const corsHeaders = {
 
 console.log("analyze-screenshot Edge Function loaded")
 
-interface OpenAIMessage {
-  role: string;
-  content: Array<{
-    type: string;
-    text?: string;
-    image_url?: {
-      url: string;
-    };
-  }>;
-}
-
-interface OpenAIResponse {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-  choices: Array<{
-    index: number;
-    message: {
-      role: string;
-      content: string;
-    };
-    finish_reason: string;
-  }>;
-}
-
 // Initialize Supabase client
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const supabaseUrl = Deno.env.get('SUPABASE_URL')
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 // Database helper functions
-async function createAnalysisRecord(screenshotUrl: string): Promise<string> {
+async function createAnalysisRecord(screenshotUrl) {
   const { data, error } = await supabase
     .from('analysis_requests')
     .insert({
@@ -68,7 +37,7 @@ async function createAnalysisRecord(screenshotUrl: string): Promise<string> {
   return data.id
 }
 
-async function updateAnalysisRecord(analysisId: string, result: string, durationMs: number): Promise<void> {
+async function updateAnalysisRecord(analysisId, result, durationMs) {
   const { error } = await supabase
     .from('analysis_requests')
     .update({
@@ -84,7 +53,7 @@ async function updateAnalysisRecord(analysisId: string, result: string, duration
   }
 }
 
-async function analyzeImageWithOpenAI(imageUrl: string): Promise<string> {
+async function analyzeImageWithOpenAI(imageUrl) {
   const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
   
   if (!openaiApiKey) {
@@ -95,7 +64,7 @@ async function analyzeImageWithOpenAI(imageUrl: string): Promise<string> {
   console.log(`🤖 Using OpenAI model: ${modelName}`)
   console.log(`📸 Analyzing image: ${imageUrl}`)
 
-  const messages: OpenAIMessage[] = [
+  const messages = [
     {
       role: "user",
       content: [
@@ -112,7 +81,7 @@ Please examine:
 6. Visual design inconsistencies with legitimate brands
 7. Any other red flags that indicate fraudulent activity
 
-Provide a detailed analysis explaining whether this appears to be a scam and why. Be specific about what elements make it suspicious or legitimate.`
+Provide a detailed analysis explaining whether this appears to be a scam and why. Be specific about what elements make it suspicious or legitimate. Also present the suspicious elements in order they are displayed so the user reading it can follow along easily.`
         },
         {
           type: "image_url",
@@ -147,7 +116,7 @@ Provide a detailed analysis explaining whether this appears to be a scam and why
       throw new Error(`OpenAI API error: ${response.status} - ${errorText}`)
     }
 
-    const data: OpenAIResponse = await response.json()
+    const data = await response.json()
     
     // Log the complete OpenAI response for debugging
     console.log('🔍 Complete OpenAI Response:')
@@ -185,7 +154,7 @@ Provide a detailed analysis explaining whether this appears to be a scam and why
   }
 }
 
-serve(async (req: Request) => {
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -198,25 +167,25 @@ serve(async (req: Request) => {
         JSON.stringify({ error: 'Method not allowed' }),
         { 
           status: 405, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
     }
 
     // Parse request body
     const { screenshotUrl } = await req.json()
-
+    
     if (!screenshotUrl) {
       return new Response(
         JSON.stringify({ error: 'screenshotUrl is required' }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
     }
 
-    let analysisId: string | null = null
+    let analysisId = null
     
     try {
       // 1. Create analysis record in database
@@ -241,7 +210,8 @@ serve(async (req: Request) => {
           // Add debug info (you can remove this in production)
           debug: {
             model_used: 'gpt-5-chat-latest',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            duration_ms: duration
           }
         }),
         {
@@ -271,9 +241,9 @@ serve(async (req: Request) => {
     console.error('Error in analyze-screenshot function:', error)
     
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: 'Internal server error',
-        message: error.message 
+        message: error.message
       }),
       {
         status: 500,

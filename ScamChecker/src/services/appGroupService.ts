@@ -1,7 +1,11 @@
-import * as FileSystem from 'expo-file-system'
+import * as FileSystem from 'expo-file-system/legacy'
+import { NativeModules, Platform } from 'react-native'
 
 // App Group configuration
 const APP_GROUP_ID = 'group.com.yourapp.scamchecker'
+
+// Native module for App Groups access
+const { AppGroupBridge } = NativeModules
 
 /**
  * App Group Service for reading shared screenshots from iOS Share Extension
@@ -19,23 +23,45 @@ export interface SharedScreenshot {
 
 /**
  * Get the App Group container directory path
- * Note: In a real iOS app with Share Extension, this would be the actual App Group path
- * For now, we'll use the document directory for testing
+ * Try multiple locations where the Share Extension might have saved files
  */
 const getAppGroupDirectory = async (): Promise<string> => {
-  // In a real iOS implementation, this would be:
-  // return FileSystem.documentDirectory + '../../../Shared/AppGroup/' + APP_GROUP_ID + '/'
+  console.log(`📂 Looking for shared screenshots in system temp directory`)
+  console.log(`📂 Target App Group ID: ${APP_GROUP_ID}`)
+  console.log(`📂 Platform: ${FileSystem.platform}`)
   
-  // For testing purposes, use a subdirectory in documents
-  const appGroupPath = FileSystem.documentDirectory + 'AppGroup/'
+  // Use the same shared temp directory that the Share Extension uses
+  const sharedTempPath = '/tmp/ScamCheckerShared/'
   
-  // Ensure the directory exists
-  const dirInfo = await FileSystem.getInfoAsync(appGroupPath)
-  if (!dirInfo.exists) {
-    await FileSystem.makeDirectoryAsync(appGroupPath, { intermediates: true })
+  console.log(`📂 Checking shared temp path: ${sharedTempPath}`)
+  
+  // Check if the directory exists
+  try {
+    const dirInfo = await FileSystem.getInfoAsync(sharedTempPath)
+    if (dirInfo.exists) {
+      console.log(`✅ Shared temp directory exists`)
+      return sharedTempPath
+    } else {
+      console.log(`❌ Shared temp directory does not exist`)
+    }
+  } catch (error) {
+    console.log(`❌ Error checking shared temp directory: ${error}`)
   }
   
-  return appGroupPath
+  // Fallback to Documents/AppGroup for backwards compatibility
+  const fallbackPath = FileSystem.documentDirectory + 'AppGroup/'
+  console.log(`📂 Using fallback path: ${fallbackPath}`)
+  
+  // Ensure the fallback directory exists
+  const dirInfo = await FileSystem.getInfoAsync(fallbackPath)
+  if (!dirInfo.exists) {
+    await FileSystem.makeDirectoryAsync(fallbackPath, { intermediates: true })
+    console.log(`✅ Created fallback App Group directory: ${fallbackPath}`)
+  } else {
+    console.log(`✅ Fallback App Group directory exists`)
+  }
+  
+  return fallbackPath
 }
 
 /**
@@ -44,6 +70,30 @@ const getAppGroupDirectory = async (): Promise<string> => {
  */
 export const getSharedFiles = async (): Promise<SharedScreenshot[]> => {
   try {
+    // Try native module first (iOS only)
+    if (Platform.OS === 'ios' && AppGroupBridge) {
+      console.log('📱 Using native App Group bridge to read files')
+      
+      try {
+        const nativeFiles = await AppGroupBridge.listAppGroupFiles()
+        console.log(`📁 Native bridge found ${nativeFiles.length} files`)
+        
+        const screenshots: SharedScreenshot[] = nativeFiles.map((file: any) => ({
+          uri: file.path,
+          filename: file.filename,
+          size: file.size,
+          modificationTime: file.modificationTime * 1000 // Convert to milliseconds
+        }))
+        
+        return screenshots
+        
+      } catch (nativeError) {
+        console.log('❌ Native bridge failed, falling back to file system:', nativeError)
+      }
+    }
+    
+    // Fallback to file system approach
+    console.log('📁 Using file system fallback')
     const appGroupDir = await getAppGroupDirectory()
     console.log(`📁 Checking App Group directory: ${appGroupDir}`)
     
@@ -88,6 +138,31 @@ export const readSharedScreenshot = async (): Promise<SharedScreenshot | null> =
   try {
     console.log('🔍 Looking for shared screenshot...')
     
+    // Try native module first for better performance
+    if (Platform.OS === 'ios' && AppGroupBridge) {
+      try {
+        console.log('📱 Using native bridge to get latest screenshot')
+        const nativeFile = await AppGroupBridge.getLatestScreenshot()
+        
+        if (nativeFile) {
+          console.log(`📱 Native bridge found latest screenshot: ${nativeFile.filename}`)
+          return {
+            uri: nativeFile.path,
+            filename: nativeFile.filename,
+            size: nativeFile.size,
+            modificationTime: nativeFile.modificationTime * 1000 // Convert to milliseconds
+          }
+        } else {
+          console.log('📱 Native bridge found no screenshots')
+          return null
+        }
+        
+      } catch (nativeError) {
+        console.log('❌ Native bridge failed, falling back:', nativeError)
+      }
+    }
+    
+    // Fallback to file system approach
     const screenshots = await getSharedFiles()
     
     if (screenshots.length === 0) {
@@ -139,6 +214,18 @@ export const cleanupOldScreenshots = async (maxAgeHours: number = 24): Promise<n
  */
 export const deleteSharedScreenshot = async (screenshot: SharedScreenshot): Promise<boolean> => {
   try {
+    // Try native module first
+    if (Platform.OS === 'ios' && AppGroupBridge) {
+      try {
+        await AppGroupBridge.deleteFile(screenshot.uri)
+        console.log(`🗑️ Deleted processed screenshot via native bridge: ${screenshot.filename}`)
+        return true
+      } catch (nativeError) {
+        console.log('❌ Native delete failed, falling back to file system:', nativeError)
+      }
+    }
+    
+    // Fallback to file system
     await FileSystem.deleteAsync(screenshot.uri)
     console.log(`🗑️ Deleted processed screenshot: ${screenshot.filename}`)
     return true

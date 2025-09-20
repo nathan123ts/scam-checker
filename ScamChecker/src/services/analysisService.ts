@@ -1,4 +1,6 @@
 import { supabase } from './supabase'
+import { decode } from 'base64-arraybuffer'
+import * as FileSystem from 'expo-file-system/legacy'
 
 // Analysis service types
 export interface AnalysisResult {
@@ -21,16 +23,23 @@ export interface AnalysisError {
 export const uploadScreenshot = async (imageUri: string, filename: string): Promise<string> => {
   try {
     console.log(`📤 Uploading screenshot: ${filename}`)
+    console.log(`📁 Image URI: ${imageUri}`)
     
-    // Convert image URI to blob for upload
-    const response = await fetch(imageUri)
-    const blob = await response.blob()
+    // Read file as base64 (React Native approach)
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    })
+    
+    // Convert base64 to ArrayBuffer for Supabase
+    const arrayBuffer = decode(base64)
+    
+    console.log(`📊 File size: ${arrayBuffer.byteLength} bytes`)
     
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from('screenshots')
-      .upload(`anon/${filename}`, blob, {
-        contentType: blob.type || 'image/jpeg',
+      .upload(`anon/${filename}`, arrayBuffer, {
+        contentType: 'image/jpeg',
         cacheControl: '3600',
         upsert: false
       })
@@ -72,6 +81,12 @@ export const analyzeScreenshot = async (screenshotUrl: string): Promise<Analysis
     
     if (error) {
       console.error('Edge Function error:', error)
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        statusText: error.statusText,
+        details: error.details
+      })
       throw new Error(`Analysis failed: ${error.message}`)
     }
     

@@ -6,20 +6,39 @@
 //
 
 import UIKit
+import Social
 import UniformTypeIdentifiers
+import os.log
 
 class ShareViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        // Super distinctive logging
+        print("🚨🚨🚨 SHAREEXTENSION_VIEWDIDLOAD_CALLED 🚨🚨🚨")
+        print("🚨🚨🚨 SHAREEXTENSION_PROCESS_STARTED 🚨🚨🚨")
+        NSLog("🚨🚨🚨 SHAREEXTENSION_NSLOG_VIEWDIDLOAD 🚨🚨🚨")
+        
+        // Also log to system log
+        os_log("🚨 ShareExtension viewDidLoad called", log: OSLog.default, type: .info)
+        
         // Immediately process the shared item
         processSharedItem()
     }
     
+    
     private func processSharedItem() {
-        guard let extensionContext = extensionContext,
-              let inputItems = extensionContext.inputItems as? [NSExtensionItem] else {
+        print("🚨🚨🚨 SHAREEXTENSION_PROCESSSHAREDITEM_CALLED 🚨🚨🚨")
+        NSLog("🚨🚨🚨 SHAREEXTENSION_PROCESSSHAREDITEM_NSLOG 🚨🚨🚨")
+        
+        guard let extensionContext = extensionContext else {
+            print("❌ No extension context")
+            completeRequest()
+            return
+        }
+        
+        guard let inputItems = extensionContext.inputItems as? [NSExtensionItem] else {
             print("❌ No input items found")
             completeRequest()
             return
@@ -27,6 +46,8 @@ class ShareViewController: UIViewController {
         
         print("📱 ScamChecker Share Extension activated")
         print("📄 Processing \(inputItems.count) input items...")
+        print("🔥 Extension context exists: \(extensionContext)")
+        print("🔥 Input items: \(inputItems)")
         
         // Process the first input item
         for inputItem in inputItems {
@@ -81,19 +102,51 @@ class ShareViewController: UIViewController {
     }
     
     private func saveImageToAppGroup(_ imageData: Data) {
-        guard let appGroupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.yourapp.scamchecker") else {
-            print("❌ Failed to access App Group container")
+        // PROPER APPROACH: Save to App Groups container
+        let appGroupIdentifier = "group.com.yourapp.scamchecker"
+        
+        print("🚨🚨🚨 ATTEMPTING_TO_GET_APP_GROUP_CONTAINER 🚨🚨🚨")
+        NSLog("🚨🚨🚨 ATTEMPTING_TO_GET_APP_GROUP_CONTAINER 🚨🚨🚨")
+        
+        guard let appGroupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) else {
+            print("❌ Failed to get App Group container")
+            NSLog("❌ Failed to get App Group container")
+            completeRequest()
+            return
+        }
+        
+        print("✅ Got App Group container: \(appGroupURL.path)")
+        NSLog("✅ Got App Group container: \(appGroupURL.path)")
+        
+        // Save the image to App Groups (main app will read via native module)
+        saveToDirectory(appGroupURL, imageData: imageData)
+    }
+    
+    
+    private func saveToDirectory(_ directoryURL: URL, imageData: Data) {
+        print("🚨🚨🚨 SAVETODIRECTORY_CALLED 🚨🚨🚨")
+        NSLog("🚨🚨🚨 SAVETODIRECTORY_CALLED 🚨🚨🚨")
+        
+        // Create directory if it doesn't exist
+        do {
+            try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true, attributes: nil)
+            print("📁 Directory created/verified: \(directoryURL.path)")
+            NSLog("📁 Directory created/verified: \(directoryURL.path)")
+        } catch {
+            print("❌ Failed to create directory: \(error)")
+            NSLog("❌ Failed to create directory: \(error)")
             completeRequest()
             return
         }
         
         let timestamp = Int(Date().timeIntervalSince1970)
         let filename = "screenshot_\(timestamp).jpg"
-        let fileURL = appGroupURL.appendingPathComponent(filename)
+        let fileURL = directoryURL.appendingPathComponent(filename)
         
         do {
             try imageData.write(to: fileURL)
-            print("✅ Screenshot saved to App Group: \(filename)")
+            print("✅ Screenshot saved: \(filename)")
+            print("📁 Full path: \(fileURL.path)")
             print("📁 File size: \((imageData.count / 1024)) KB")
             
             // Open main app
