@@ -6,7 +6,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootState, AppDispatch } from '../store'
 import { setLoading, setResult, setError } from '../store/analysisSlice'
 import { LoadingSpinner } from '../components'
-import { analyzeScreenshot, readSharedScreenshot } from '../services'
+import { uploadAndAnalyze, readSharedScreenshot, deleteSharedScreenshot } from '../services'
 import { RootStackParamList } from '../navigation'
 
 type AnalyzeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Analyze'>
@@ -40,27 +40,40 @@ export const AnalyzeScreen: React.FC = () => {
 
   // Function to analyze a shared screenshot from App Group
   const startAnalysisWithSharedScreenshot = async (screenshotPath: string) => {
+    let sharedScreenshot = null
+    
     try {
       dispatch(setLoading(true))
-      console.log('🔍 Starting analysis of shared screenshot...')
+      console.log('🔍 Starting complete analysis flow for shared screenshot...')
       
-      // TODO: In the real implementation, we would:
-      // 1. Upload the local screenshot file to Supabase Storage
-      // 2. Get the public URL
-      // 3. Call analyzeScreenshot with that URL
+      // Get the shared screenshot object for cleanup later
+      sharedScreenshot = await readSharedScreenshot()
       
-      // For now, use the test image URL since we don't have real shared screenshots yet
-      const testImageUrl = "https://yjyziszwmrwycodfkjac.supabase.co/storage/v1/object/sign/screenshots/Screenshot%202025-03-24%20at%203.19.09%20PM.jpeg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xMDU1MzUwNi1kNzFiLTRjZjEtYTQ4OS00N2VmNTkxNGQ1ZTgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJzY3JlZW5zaG90cy9TY3JlZW5zaG90IDIwMjUtMDMtMjQgYXQgMy4xOS4wOSBQTS5qcGVnIiwiaWF0IjoxNzU4Mzg1Mzc3LCJleHAiOjE3NTg5OTAxNzc9.viUTtfCfCW8DqW5TaAUl15vbe8xgDV4Qmam1VO6YQok"
+      if (!sharedScreenshot) {
+        throw new Error('Shared screenshot not found')
+      }
       
-      console.log(`📱 Analyzing shared screenshot: ${screenshotPath}`)
-      const analysisResult = await analyzeScreenshot(testImageUrl)
+      console.log(`📱 Processing shared screenshot: ${sharedScreenshot.filename}`)
+      console.log(`📁 File size: ${(sharedScreenshot.size / 1024).toFixed(2)} KB`)
+      
+      // Complete analysis flow: upload to Supabase Storage + analyze with GPT
+      const analysisResult = await uploadAndAnalyze(screenshotPath)
       
       dispatch(setResult({
         analysisId: analysisResult.analysisId,
         result: analysisResult.result
       }))
       
-      console.log('✅ Analysis completed for shared screenshot')
+      console.log('✅ Complete analysis flow completed successfully')
+      console.log(`📊 Analysis ID: ${analysisResult.analysisId}`)
+      
+      // Clean up: delete the shared screenshot after successful analysis
+      if (sharedScreenshot) {
+        const deleted = await deleteSharedScreenshot(sharedScreenshot)
+        if (deleted) {
+          console.log('🗑️ Shared screenshot cleaned up successfully')
+        }
+      }
       
       // Navigate to results screen after successful analysis
       setTimeout(() => {
@@ -68,8 +81,18 @@ export const AnalyzeScreen: React.FC = () => {
       }, 1000) // Small delay to show success state briefly
       
     } catch (error) {
-      console.error('❌ Analysis failed for shared screenshot:', error)
+      console.error('❌ Complete analysis flow failed:', error)
       dispatch(setError(error instanceof Error ? error.message : 'Analysis failed'))
+      
+      // Still try to clean up the shared screenshot on error
+      if (sharedScreenshot) {
+        try {
+          await deleteSharedScreenshot(sharedScreenshot)
+          console.log('🗑️ Shared screenshot cleaned up after error')
+        } catch (cleanupError) {
+          console.error('Failed to cleanup shared screenshot:', cleanupError)
+        }
+      }
     }
   }
 
