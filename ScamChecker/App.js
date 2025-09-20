@@ -30,14 +30,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     marginTop: 5,
+    marginBottom: 30,
   },
-  testContainer: {
-    marginTop: 30,
+  spinnerContainer: {
     alignItems: 'center',
-  },
-  status: {
-    marginTop: 10,
-    fontSize: 14,
-    color: '#666',
+    gap: 30,
   },
 });

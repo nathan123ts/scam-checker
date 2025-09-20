@@ -1,6 +1,6 @@
 // Component exports
-// This file will export all reusable components
+// This file exports all reusable components
 
+export { LoadingSpinner } from './LoadingSpinner'
 // TODO: Uncomment when components are created
-// export { default as LoadingSpinner } from './LoadingSpinner';
 // export { default as ErrorMessage } from './ErrorMessage';
