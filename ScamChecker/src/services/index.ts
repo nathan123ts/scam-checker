@@ -3,5 +3,4 @@
 
 export * from './supabase'
 export * from './analysisService'
-// TODO: Uncomment when services are created
-// export * from './appGroupService';
+export * from './appGroupService'

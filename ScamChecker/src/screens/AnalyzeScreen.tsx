@@ -6,7 +6,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootState, AppDispatch } from '../store'
 import { setLoading, setResult, setError } from '../store/analysisSlice'
 import { LoadingSpinner } from '../components'
-import { analyzeScreenshot } from '../services'
+import { analyzeScreenshot, readSharedScreenshot } from '../services'
 import { RootStackParamList } from '../navigation'
 
 type AnalyzeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Analyze'>
@@ -18,23 +18,41 @@ export const AnalyzeScreen: React.FC = () => {
     (state: RootState) => state.analysis
   )
 
-  // Mock function to simulate checking for shared screenshot
-  // In real implementation, this would check App Group container
+  // Function to check for shared screenshot from App Group
   const checkForSharedScreenshot = async (): Promise<string | null> => {
-    // Simulate checking App Group for shared screenshot
-    // For now, return null (no screenshot found)
-    return null
+    try {
+      // Check App Group for shared screenshots
+      const sharedScreenshot = await readSharedScreenshot()
+      
+      if (sharedScreenshot) {
+        console.log(`📱 Found shared screenshot: ${sharedScreenshot.filename}`)
+        return sharedScreenshot.uri
+      }
+      
+      console.log('📱 No shared screenshot found')
+      return null
+      
+    } catch (error) {
+      console.error('Error checking for shared screenshot:', error)
+      return null
+    }
   }
 
-  // Function to start analysis with a test image
-  const startAnalysis = async () => {
+  // Function to analyze a shared screenshot from App Group
+  const startAnalysisWithSharedScreenshot = async (screenshotPath: string) => {
     try {
       dispatch(setLoading(true))
+      console.log('🔍 Starting analysis of shared screenshot...')
       
-      // For testing, use the same image URL we used before
-      const testImageUrl = "https://yjyziszwmrwycodfkjac.supabase.co/storage/v1/object/sign/screenshots/Screenshot%202025-03-24%20at%203.19.09%20PM.jpeg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xMDU1MzUwNi1kNzFiLTRjZjEtYTQ4OS00N2VmNTkxNGQ1ZTgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJzY3JlZW5zaG90cy9TY3JlZW5zaG90IDIwMjUtMDMtMjQgYXQgMy4xOS4wOSBQTS5qcGVnIiwiaWF0IjoxNzU4Mzg1Mzc3LCJleHAiOjE3NTg5OTAxNzd9.viUTtfCfCW8DqW5TaAUl15vbe8xgDV4Qmam1VO6YQok"
+      // TODO: In the real implementation, we would:
+      // 1. Upload the local screenshot file to Supabase Storage
+      // 2. Get the public URL
+      // 3. Call analyzeScreenshot with that URL
       
-      console.log('🔍 Starting analysis from AnalyzeScreen...')
+      // For now, use the test image URL since we don't have real shared screenshots yet
+      const testImageUrl = "https://yjyziszwmrwycodfkjac.supabase.co/storage/v1/object/sign/screenshots/Screenshot%202025-03-24%20at%203.19.09%20PM.jpeg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xMDU1MzUwNi1kNzFiLTRjZjEtYTQ4OS00N2VmNTkxNGQ1ZTgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJzY3JlZW5zaG90cy9TY3JlZW5zaG90IDIwMjUtMDMtMjQgYXQgMy4xOS4wOSBQTS5qcGVnIiwiaWF0IjoxNzU4Mzg1Mzc3LCJleHAiOjE3NTg5OTAxNzc9.viUTtfCfCW8DqW5TaAUl15vbe8xgDV4Qmam1VO6YQok"
+      
+      console.log(`📱 Analyzing shared screenshot: ${screenshotPath}`)
       const analysisResult = await analyzeScreenshot(testImageUrl)
       
       dispatch(setResult({
@@ -42,7 +60,7 @@ export const AnalyzeScreen: React.FC = () => {
         result: analysisResult.result
       }))
       
-      console.log('✅ Analysis completed in AnalyzeScreen')
+      console.log('✅ Analysis completed for shared screenshot')
       
       // Navigate to results screen after successful analysis
       setTimeout(() => {
@@ -50,7 +68,7 @@ export const AnalyzeScreen: React.FC = () => {
       }, 1000) // Small delay to show success state briefly
       
     } catch (error) {
-      console.error('❌ Analysis failed in AnalyzeScreen:', error)
+      console.error('❌ Analysis failed for shared screenshot:', error)
       dispatch(setError(error instanceof Error ? error.message : 'Analysis failed'))
     }
   }
@@ -59,23 +77,23 @@ export const AnalyzeScreen: React.FC = () => {
   useEffect(() => {
     const initializeAnalysis = async () => {
       try {
+        console.log('🔍 App launched - checking for shared screenshot from Share Extension...')
+        
         // Check if there's a shared screenshot from Share Extension
         const sharedScreenshotPath = await checkForSharedScreenshot()
         
         if (sharedScreenshotPath) {
-          // TODO: In real implementation, upload the shared screenshot
-          // and then analyze it
-          console.log('Found shared screenshot:', sharedScreenshotPath)
-          // startAnalysis() would be called here
+          console.log('📱 Found shared screenshot, starting analysis...')
+          // Start analysis with the shared screenshot
+          startAnalysisWithSharedScreenshot(sharedScreenshotPath)
         } else {
-          // For testing purposes, auto-start analysis after 1 second
-          setTimeout(() => {
-            startAnalysis()
-          }, 1000)
+          console.log('📱 No shared screenshot found')
+          // Show message that user should share a screenshot
+          dispatch(setError('No screenshot found. Please share a screenshot using the iOS Share Sheet.'))
         }
       } catch (error) {
         console.error('Error initializing analysis:', error)
-        dispatch(setError('Failed to initialize analysis'))
+        dispatch(setError('Failed to check for shared screenshot'))
       }
     }
 
@@ -151,14 +169,18 @@ export const AnalyzeScreen: React.FC = () => {
     )
   }
 
-  // Default state (shouldn't normally be reached)
+  // Default state - waiting for shared screenshot
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>ScamChecker</Text>
-        <Text style={styles.subtitle}>Ready to analyze</Text>
+        <Text style={styles.subtitle}>Waiting for screenshot...</Text>
         <Text style={styles.hint}>
-          Share a screenshot to begin analysis
+          To analyze a screenshot:{'\n\n'}
+          1. Take a screenshot{'\n'}
+          2. Tap the Share button{'\n'}
+          3. Select ScamChecker{'\n\n'}
+          The analysis will start automatically.
         </Text>
       </View>
     </SafeAreaView>
