@@ -1,7 +1,7 @@
 // Service exports
-// This file will export all service modules
+// This file exports all service modules
 
+export * from './supabase'
 // TODO: Uncomment when services are created
-// export * from './supabase';
 // export * from './analysisService';
 // export * from './appGroupService';
