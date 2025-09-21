@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react'
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native'
 import { useSelector, useDispatch } from 'react-redux'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootState, AppDispatch } from '../store'
-import { setLoading, setResult, setError } from '../store/analysisSlice'
+import { setLoading, setResult, setError, clearAnalysis } from '../store/analysisSlice'
 import { LoadingSpinner } from '../components'
-import { uploadAndAnalyze, readSharedScreenshot, deleteSharedScreenshot } from '../services'
+import { uploadAndAnalyze, readSharedScreenshot, deleteSharedScreenshot, clearOldScreenshots } from '../services'
 import { RootStackParamList } from '../navigation'
 
 type AnalyzeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Analyze'>
@@ -17,6 +17,18 @@ export const AnalyzeScreen: React.FC = () => {
   const { isLoading, result, error, analysisId } = useSelector(
     (state: RootState) => state.analysis
   )
+  
+  // Ref to prevent multiple simultaneous analysis attempts
+  const isAnalyzing = React.useRef(false)
+  const lastCheckedFile = React.useRef<string | null>(null)
+  const currentAnalysisId = React.useRef<string | null>(null)
+  
+  // Timing tracking
+  const analysisStartTime = React.useRef<number | null>(null)
+  const loadingStartTime = React.useRef<number | null>(null)
+  const resultsScreenStartTime = React.useRef<number | null>(null)
+  const lastFocusTime = React.useRef<number>(0)
+  const hasCleanedUp = React.useRef<boolean>(false)
 
   // Function to check for shared screenshot from App Group
   const checkForSharedScreenshot = async (): Promise<string | null> => {
@@ -40,11 +52,21 @@ export const AnalyzeScreen: React.FC = () => {
 
   // Function to analyze a shared screenshot from App Group
   const startAnalysisWithSharedScreenshot = async (screenshotPath: string) => {
+    // Prevent multiple simultaneous analyses
+    if (isAnalyzing.current) {
+      console.log('⏳ Analysis already in progress, skipping...')
+      return
+    }
+    
     let sharedScreenshot = null
     
     try {
+      isAnalyzing.current = true
+      analysisStartTime.current = Date.now()
+      loadingStartTime.current = Date.now()
       dispatch(setLoading(true))
       console.log('🔍 Starting complete analysis flow for shared screenshot...')
+      console.log('⏱️ TIMING: Analysis started at', new Date().toISOString())
       
       // Get the shared screenshot object for cleanup later
       sharedScreenshot = await readSharedScreenshot()
@@ -59,13 +81,20 @@ export const AnalyzeScreen: React.FC = () => {
       // Complete analysis flow: upload to Supabase Storage + analyze with GPT
       const analysisResult = await uploadAndAnalyze(screenshotPath)
       
-      dispatch(setResult({
-        analysisId: analysisResult.analysisId,
-        result: analysisResult.result
-      }))
+      // Store the current analysis ID before dispatching
+      currentAnalysisId.current = analysisResult.analysisId
+      
+      // Reset analyzing flag BEFORE state update to allow navigation
+      isAnalyzing.current = false
+      
+      const analysisEndTime = Date.now()
+      const totalAnalysisTime = analysisStartTime.current ? analysisEndTime - analysisStartTime.current : 0
+      const loadingTime = loadingStartTime.current ? analysisEndTime - loadingStartTime.current : 0
       
       console.log('✅ Complete analysis flow completed successfully')
       console.log(`📊 Analysis ID: ${analysisResult.analysisId}`)
+      console.log(`⏱️ TIMING: Total analysis time: ${(totalAnalysisTime / 1000).toFixed(2)}s`)
+      console.log(`⏱️ TIMING: Loading screen duration: ${(loadingTime / 1000).toFixed(2)}s`)
       
       // Clean up: delete the shared screenshot after successful analysis
       if (sharedScreenshot) {
@@ -75,10 +104,13 @@ export const AnalyzeScreen: React.FC = () => {
         }
       }
       
-      // Navigate to results screen after successful analysis
-      setTimeout(() => {
-        navigation.navigate('Results')
-      }, 1000) // Small delay to show success state briefly
+      console.log('🎯 Analysis complete, dispatching state update for navigation')
+      
+      // Dispatch state update AFTER everything is ready for navigation
+      dispatch(setResult({
+        analysisId: analysisResult.analysisId,
+        result: analysisResult.result
+      }))
       
     } catch (error) {
       console.error('❌ Complete analysis flow failed:', error)
@@ -93,35 +125,113 @@ export const AnalyzeScreen: React.FC = () => {
           console.error('Failed to cleanup shared screenshot:', cleanupError)
         }
       }
+    } finally {
+      // Always reset the analyzing flag
+      isAnalyzing.current = false
     }
   }
 
-  // Check for shared screenshot when component mounts
-  useEffect(() => {
-    const initializeAnalysis = async () => {
-      try {
-        console.log('🔍 App launched - checking for shared screenshot from Share Extension...')
-        
-        // Check if there's a shared screenshot from Share Extension
-        const sharedScreenshotPath = await checkForSharedScreenshot()
-        
-        if (sharedScreenshotPath) {
-          console.log('📱 Found shared screenshot, starting analysis...')
-          // Start analysis with the shared screenshot
-          startAnalysisWithSharedScreenshot(sharedScreenshotPath)
-        } else {
-          console.log('📱 No shared screenshot found')
-          // Show message that user should share a screenshot
-          dispatch(setError('No screenshot found. Please share a screenshot using the iOS Share Sheet.'))
-        }
-      } catch (error) {
-        console.error('Error initializing analysis:', error)
-        dispatch(setError('Failed to check for shared screenshot'))
-      }
+  // Navigate to results when the CURRENT analysis is complete and state is updated
+  React.useEffect(() => {
+    console.log('🔍 Navigation effect triggered:', {
+      currentAnalysisId: currentAnalysisId.current,
+      analysisId,
+      hasResult: !!result,
+      isLoading,
+      isAnalyzing: isAnalyzing.current
+    })
+    
+    // Only navigate if this is the analysis we're currently waiting for AND no analysis is running
+    if (currentAnalysisId.current && 
+        analysisId === currentAnalysisId.current && 
+        result && 
+        !isLoading &&
+        !isAnalyzing.current) {
+      
+      const stateUpdateTime = Date.now()
+      const stateUpdateDelay = analysisStartTime.current ? stateUpdateTime - analysisStartTime.current : 0
+      
+      console.log('🔄 State updated with CURRENT analysis results, navigating to results screen')
+      console.log(`⏱️ TIMING: State update delay: ${(stateUpdateDelay / 1000).toFixed(2)}s`)
+      console.log(`🎯 TIMING: Current analysis ID matches: ${currentAnalysisId.current}`)
+      
+      // Reset tracking
+      currentAnalysisId.current = null
+      lastCheckedFile.current = null
+      resultsScreenStartTime.current = Date.now()
+      
+      // Small delay to ensure UI is ready
+      setTimeout(() => {
+        console.log('⏱️ TIMING: Navigating to results screen at', new Date().toISOString())
+        navigation.navigate('Results')
+      }, 100)
+    } else if (currentAnalysisId.current && analysisId !== currentAnalysisId.current) {
+      console.log(`⏳ TIMING: Waiting for current analysis ${currentAnalysisId.current}, but got ${analysisId}`)
+    } else if (isAnalyzing.current && currentAnalysisId.current) {
+      console.log(`⏳ TIMING: Analysis ${currentAnalysisId.current} still in progress, delaying navigation`)
+    } else if (!currentAnalysisId.current) {
+      console.log('⏳ TIMING: No current analysis ID set, not navigating')
     }
+  }, [result, analysisId, isLoading, navigation])
 
-    initializeAnalysis()
-  }, [])
+
+  // Check for shared screenshot when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      const initializeAnalysis = async () => {
+        try {
+          // Debounce rapid focus events
+          const now = Date.now()
+          if (now - lastFocusTime.current < 1000) { // 1 second debounce
+            console.log('🔍 Screen focus debounced, skipping...')
+            return
+          }
+          lastFocusTime.current = now
+          
+          console.log('🔍 Screen focused - checking for shared screenshot from Share Extension...')
+          
+          // Always clear state for fresh start (no back button now)
+          dispatch(clearAnalysis())
+          // Reset all tracking variables for fresh start
+          currentAnalysisId.current = null
+          lastCheckedFile.current = null
+          isAnalyzing.current = false
+          console.log('🔄 Cleared previous analysis state for fresh start')
+          
+          // Clean up old screenshots, keep only the newest (just shared)
+          if (!hasCleanedUp.current) {
+            await clearOldScreenshots()
+            hasCleanedUp.current = true
+          }
+          
+          // Check if there's a shared screenshot from Share Extension
+          const sharedScreenshotPath = await checkForSharedScreenshot()
+          
+          if (sharedScreenshotPath) {
+            // Prevent duplicate processing only if analysis is currently running
+            if (isAnalyzing.current) {
+              console.log('📱 Analysis already in progress, skipping...')
+              return
+            }
+            
+            console.log('📱 Found shared screenshot, starting analysis...')
+            // Set this IMMEDIATELY to prevent duplicate processing
+            lastCheckedFile.current = sharedScreenshotPath
+            // Start analysis with the shared screenshot
+            startAnalysisWithSharedScreenshot(sharedScreenshotPath)
+          } else {
+            console.log('📱 No shared screenshot found')
+            dispatch(setError('No screenshot found. Please share a screenshot using the iOS Share Sheet.'))
+          }
+        } catch (error) {
+          console.error('Error initializing analysis:', error)
+          dispatch(setError('Failed to check for shared screenshot'))
+        }
+      }
+
+      initializeAnalysis()
+    }, []) // Only run when screen comes into focus, not when result changes
+  )
 
   // Render loading state
   if (isLoading) {
@@ -180,6 +290,9 @@ export const AnalyzeScreen: React.FC = () => {
             </Text>
             <Text style={styles.analysisId}>
               Analysis ID: {analysisId.substring(0, 8)}...
+            </Text>
+            <Text style={styles.hint}>
+              Share another screenshot to analyze it, or tap below to view results.
             </Text>
           </View>
         </View>
@@ -274,3 +387,4 @@ const styles = StyleSheet.create({
 })
 
 export default AnalyzeScreen
+

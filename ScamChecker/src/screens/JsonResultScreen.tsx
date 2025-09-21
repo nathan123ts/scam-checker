@@ -5,30 +5,67 @@ import { RootState } from '../store'
 
 export const JsonResultScreen: React.FC = () => {
   const { result, analysisId } = useSelector((state: RootState) => state.analysis)
+  const screenLoadTime = React.useRef<number>(Date.now())
+  const [hasLoggedResultsReady, setHasLoggedResultsReady] = React.useState(false)
 
-
-  // Format the analysis result for better readability
-  const formatAnalysisResult = (text: string): string => {
-    if (!text) return 'No analysis result available'
+  // Component to render formatted analysis text with bold headers
+  const FormattedAnalysisText: React.FC<{ text: string }> = ({ text }) => {
+    if (!text) return <Text style={styles.resultText}>No analysis result available</Text>
     
-    // Add line breaks for better readability
-    return text
-      .replace(/\d+\./g, '\n$&') // Add line break before numbered points
-      .replace(/([.!?])\s+([A-Z])/g, '$1\n\n$2') // Add paragraph breaks
-      .trim()
+    // Split text into lines and process each line
+    const lines = text.split('\n')
+    const elements: React.ReactNode[] = []
+    
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim()
+      
+      // Check if this line is a section header
+      if (trimmedLine === 'Sender Check' || trimmedLine === 'Message Check' || trimmedLine === 'Action') {
+        elements.push(
+          <Text key={index} style={[styles.resultText, styles.sectionHeader]}>
+            {trimmedLine}
+          </Text>
+        )
+      } else if (trimmedLine) {
+        // Regular content line
+        elements.push(
+          <Text key={index} style={styles.resultText}>
+            {trimmedLine}
+          </Text>
+        )
+      } else {
+        // Empty line for spacing
+        elements.push(<Text key={index} style={styles.resultText}> </Text>)
+      }
+    })
+    
+    return <>{elements}</>
   }
-
-  const formattedResult = result ? formatAnalysisResult(result) : 'No analysis result available'
 
   // Extract key information if possible
   const extractKeyInfo = (text: string) => {
-    const isScam = text.toLowerCase().includes('scam') || 
-                   text.toLowerCase().includes('phishing') || 
-                   text.toLowerCase().includes('fraudulent')
+    const lowerText = text.toLowerCase()
     
-    const isSafe = text.toLowerCase().includes('legitimate') || 
-                   text.toLowerCase().includes('appears safe') ||
-                   text.toLowerCase().includes('not a scam')
+    // Check for scam/unsafe indicators
+    const isScam = lowerText.includes('scam') || 
+                   lowerText.includes('phishing') || 
+                   lowerText.includes('fraudulent') ||
+                   lowerText.includes('suspicious') ||
+                   lowerText.includes('do not click') ||
+                   lowerText.includes('do not reply') ||
+                   lowerText.includes('block it') ||
+                   lowerText.includes('avoid') ||
+                   lowerText.includes('fake') ||
+                   lowerText.includes('malicious')
+    
+    // Check for safe indicators
+    const isSafe = lowerText.includes('legitimate') || 
+                   lowerText.includes('appears safe') ||
+                   lowerText.includes('not a scam') ||
+                   lowerText.includes('safe to') ||
+                   lowerText.includes('genuine') ||
+                   lowerText.includes('authentic') ||
+                   lowerText.includes('official')
     
     if (isScam) return { status: 'warning', label: 'Potential Scam Detected' }
     if (isSafe) return { status: 'safe', label: 'Appears Safe' }
@@ -36,6 +73,32 @@ export const JsonResultScreen: React.FC = () => {
   }
 
   const keyInfo = result ? extractKeyInfo(result) : { status: 'neutral', label: 'No Analysis' }
+
+  // Log timing when results are actually ready and displayed
+  React.useEffect(() => {
+    console.log('⏱️ TIMING: Results screen mounted at', new Date().toISOString())
+    
+    if (result && analysisId && !hasLoggedResultsReady) {
+      const resultsReadyTime = Date.now()
+      const timeFromScreenLoad = resultsReadyTime - screenLoadTime.current
+      
+      console.log('⏱️ TIMING: Results screen loaded with data')
+      console.log(`⏱️ TIMING: Time from screen mount to data ready: ${(timeFromScreenLoad / 1000).toFixed(2)}s`)
+      console.log(`⏱️ TIMING: Analysis status detected: ${keyInfo.label}`)
+      console.log(`⏱️ TIMING: Results fully rendered at`, new Date().toISOString())
+      
+      setHasLoggedResultsReady(true)
+    } else if (!result || !analysisId) {
+      console.log('⏱️ TIMING: Results screen mounted but no data available yet')
+      console.log('⏱️ TIMING: Waiting for analysis results...')
+    }
+  }, [result, analysisId, keyInfo.label, hasLoggedResultsReady])
+
+  // Reset timing when screen comes into focus
+  React.useEffect(() => {
+    screenLoadTime.current = Date.now()
+    setHasLoggedResultsReady(false)
+  }, [])
 
   return (
     <SafeAreaView style={styles.container}>
@@ -78,9 +141,7 @@ export const JsonResultScreen: React.FC = () => {
         showsVerticalScrollIndicator={true}
       >
         <View style={styles.resultContainer}>
-          <Text style={styles.resultText}>
-            {formattedResult}
-          </Text>
+          <FormattedAnalysisText text={result || ''} />
         </View>
         
         {/* Metadata */}
@@ -183,6 +244,13 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#333',
     textAlign: 'left',
+  },
+  sectionHeader: {
+    fontWeight: 'bold',
+    fontSize: 17,
+    color: '#1a1a1a',
+    marginTop: 16,
+    marginBottom: 8,
   },
   metadataContainer: {
     margin: 20,

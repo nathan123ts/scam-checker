@@ -210,6 +210,77 @@ export const cleanupOldScreenshots = async (maxAgeHours: number = 24): Promise<n
 }
 
 /**
+ * Clear old screenshots but keep the newest one (the one just shared)
+ */
+export const clearOldScreenshots = async (): Promise<void> => {
+  try {
+    console.log('🧹 Clearing old screenshots, keeping newest...')
+    
+    if (Platform.OS === 'ios' && AppGroupBridge) {
+      try {
+        const files = await AppGroupBridge.listAppGroupFiles()
+        console.log(`🧹 Found ${files.length} total files`)
+        
+        if (files.length <= 1) {
+          console.log('✅ Only one or no files found, no cleanup needed')
+          return
+        }
+        
+        // Sort by creation time (newest first)
+        const sortedFiles = files.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        const newestFile = sortedFiles[0]
+        const oldFiles = sortedFiles.slice(1) // All except the newest
+        
+        console.log(`📱 Keeping newest: ${newestFile.filename}`)
+        console.log(`🗑️ Deleting ${oldFiles.length} old files`)
+        
+        for (const file of oldFiles) {
+          try {
+            await AppGroupBridge.deleteFile(file.uri)
+            console.log(`🗑️ Deleted old screenshot: ${file.filename}`)
+          } catch (error) {
+            // Skip permission errors silently - they're usually system files we can't delete
+            if (error.message?.includes('permission') || error.message?.includes('System')) {
+              console.log(`⚠️ Skipping system file: ${file.filename}`)
+            } else {
+              console.log(`⚠️ Failed to delete ${file.filename}:`, error.message)
+            }
+          }
+        }
+        
+        console.log('✅ Old screenshots cleanup completed')
+        return
+      } catch (error) {
+        console.log('❌ Native cleanup failed, using fallback:', error)
+      }
+    }
+    
+    // Fallback: use file system
+    const screenshots = await getSharedFiles()
+    if (screenshots.length <= 1) {
+      console.log('✅ Only one or no files found, no cleanup needed')
+      return
+    }
+    
+    // Sort by creation time and keep newest
+    const sortedScreenshots = screenshots.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    const oldScreenshots = sortedScreenshots.slice(1)
+    
+    for (const screenshot of oldScreenshots) {
+      try {
+        await FileSystem.deleteAsync(screenshot.uri)
+        console.log(`🗑️ Deleted old screenshot (fallback): ${screenshot.filename}`)
+      } catch (error) {
+        console.log(`⚠️ Failed to delete ${screenshot.filename}:`, error)
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error clearing old screenshots:', error)
+  }
+}
+
+/**
  * Delete a specific shared screenshot after processing
  */
 export const deleteSharedScreenshot = async (screenshot: SharedScreenshot): Promise<boolean> => {
@@ -221,14 +292,24 @@ export const deleteSharedScreenshot = async (screenshot: SharedScreenshot): Prom
         console.log(`🗑️ Deleted processed screenshot via native bridge: ${screenshot.filename}`)
         return true
       } catch (nativeError) {
-        console.log('❌ Native delete failed, falling back to file system:', nativeError)
+        console.log('❌ Native delete failed, falling back to file system:', nativeError.message)
+        // Continue to fallback only if native delete failed
       }
     }
     
-    // Fallback to file system
-    await FileSystem.deleteAsync(screenshot.uri)
-    console.log(`🗑️ Deleted processed screenshot: ${screenshot.filename}`)
-    return true
+    // Fallback to file system (only if native delete failed or not available)
+    try {
+      await FileSystem.deleteAsync(screenshot.uri)
+      console.log(`🗑️ Deleted processed screenshot via fallback: ${screenshot.filename}`)
+      return true
+    } catch (fallbackError) {
+      // Check if file doesn't exist (which is actually success)
+      if (fallbackError.message?.includes('does not exist')) {
+        console.log(`✅ Screenshot already deleted: ${screenshot.filename}`)
+        return true
+      }
+      throw fallbackError
+    }
     
   } catch (error) {
     console.error('Error deleting screenshot:', error)

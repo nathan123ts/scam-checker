@@ -21,9 +21,11 @@ export interface AnalysisError {
  * @returns Public URL of uploaded image
  */
 export const uploadScreenshot = async (imageUri: string, filename: string): Promise<string> => {
+  const uploadStartTime = Date.now()
   try {
     console.log(`📤 Uploading screenshot: ${filename}`)
     console.log(`📁 Image URI: ${imageUri}`)
+    console.log(`⏱️ TIMING: Upload started at`, new Date().toISOString())
     
     // Read file as base64 (React Native approach)
     const base64 = await FileSystem.readAsStringAsync(imageUri, {
@@ -55,7 +57,9 @@ export const uploadScreenshot = async (imageUri: string, filename: string): Prom
       .getPublicUrl(data.path)
     
     const publicUrl = publicUrlData.publicUrl
+    const uploadTime = Date.now() - uploadStartTime
     console.log(`✅ Screenshot uploaded successfully: ${publicUrl}`)
+    console.log(`⏱️ TIMING: Upload completed in ${(uploadTime / 1000).toFixed(2)}s`)
     
     return publicUrl
     
@@ -71,8 +75,10 @@ export const uploadScreenshot = async (imageUri: string, filename: string): Prom
  * @returns Analysis result from GPT Vision API
  */
 export const analyzeScreenshot = async (screenshotUrl: string): Promise<AnalysisResult> => {
+  const analysisStartTime = Date.now()
   try {
     console.log(`🔍 Starting analysis for: ${screenshotUrl}`)
+    console.log(`⏱️ TIMING: GPT analysis started at`, new Date().toISOString())
     
     // Call the analyze-screenshot Edge Function
     const { data, error } = await supabase.functions.invoke('analyze-screenshot', {
@@ -96,7 +102,9 @@ export const analyzeScreenshot = async (screenshotUrl: string): Promise<Analysis
       throw new Error('Invalid response from analysis service')
     }
     
+    const analysisTime = Date.now() - analysisStartTime
     console.log(`✅ Analysis completed: ${data.analysisId}`)
+    console.log(`⏱️ TIMING: GPT analysis completed in ${(analysisTime / 1000).toFixed(2)}s`)
     
     return {
       analysisId: data.analysisId,
