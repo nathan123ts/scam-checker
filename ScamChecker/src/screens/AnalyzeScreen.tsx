@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
-import { View, Text, StyleSheet, SafeAreaView } from 'react-native'
+import { View, Text, StyleSheet, SafeAreaView, Linking } from 'react-native'
 import { useSelector, useDispatch } from 'react-redux'
-import { useNavigation, useFocusEffect } from '@react-navigation/native'
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootState, AppDispatch } from '../store'
 import { setLoading, setResult, setError, clearAnalysis } from '../store/analysisSlice'
@@ -14,6 +14,7 @@ type AnalyzeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList,
 export const AnalyzeScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>()
   const navigation = useNavigation<AnalyzeScreenNavigationProp>()
+  const route = useRoute()
   const { isLoading, result, error, analysisId } = useSelector(
     (state: RootState) => state.analysis
   )
@@ -29,6 +30,7 @@ export const AnalyzeScreen: React.FC = () => {
   const resultsScreenStartTime = React.useRef<number | null>(null)
   const lastFocusTime = React.useRef<number>(0)
   const hasCleanedUp = React.useRef<boolean>(false)
+  const isFromShareExtension = React.useRef<boolean>(false)
 
   // Function to check for shared screenshot from App Group
   const checkForSharedScreenshot = async (): Promise<string | null> => {
@@ -174,6 +176,136 @@ export const AnalyzeScreen: React.FC = () => {
     }
   }, [result, analysisId, isLoading, navigation])
 
+  // Detect if app was launched from Share Extension or receives URL while running
+  React.useEffect(() => {
+    const checkInitialURL = async () => {
+      try {
+        const url = await Linking.getInitialURL()
+        if (url && url.includes('scamchecker://analyze')) {
+          console.log('🔗 App launched from Share Extension:', url)
+          isFromShareExtension.current = true
+        } else {
+          console.log('📱 App launched directly (no URL scheme)')
+          isFromShareExtension.current = false
+        }
+      } catch (error) {
+        console.log('❌ Error checking initial URL:', error)
+        isFromShareExtension.current = false
+      }
+    }
+    
+    // Handle URLs received while app is running
+    const handleURL = ({ url }: { url: string }) => {
+      if (url.includes('scamchecker://analyze')) {
+        console.log('🔗 AnalyzeScreen received URL while running:', url)
+        isFromShareExtension.current = true
+        // Force a re-check by clearing the debounce timer and triggering analysis
+        lastFocusTime.current = 0
+        console.log('🔄 URL received - forcing analysis check...')
+        
+        // Manually trigger the analysis flow since we're already on AnalyzeScreen
+        setTimeout(() => {
+          const initializeAnalysis = async () => {
+            try {
+              console.log('🔍 Manual analysis trigger from URL...')
+              
+              // Clear state for fresh start
+              dispatch(clearAnalysis())
+              currentAnalysisId.current = null
+              lastCheckedFile.current = null
+              isAnalyzing.current = false
+              
+              // Clean up old screenshots, keep only the newest
+              if (!hasCleanedUp.current) {
+                await clearOldScreenshots()
+                hasCleanedUp.current = true
+              }
+              
+              // Check for shared screenshot
+              const sharedScreenshotPath = await checkForSharedScreenshot()
+              
+              if (sharedScreenshotPath) {
+                if (isAnalyzing.current) {
+                  console.log('📱 Analysis already in progress, skipping...')
+                  return
+                }
+                
+                console.log('📱 Found shared screenshot from URL trigger, starting analysis...')
+                lastCheckedFile.current = sharedScreenshotPath
+                startAnalysisWithSharedScreenshot(sharedScreenshotPath)
+                isFromShareExtension.current = false
+              } else {
+                console.log('📱 No shared screenshot found from URL trigger')
+                dispatch(setError('No screenshot found. Please share a screenshot using the iOS Share Sheet.'))
+                isFromShareExtension.current = false
+              }
+            } catch (error) {
+              console.error('Error in manual analysis trigger:', error)
+              dispatch(setError('Failed to check for shared screenshot'))
+            }
+          }
+          
+          initializeAnalysis()
+        }, 100) // Small delay to ensure navigation is complete
+      }
+    }
+    
+    checkInitialURL()
+    
+    // Listen for URL events while app is running
+    const subscription = Linking.addEventListener('url', handleURL)
+    
+    return () => subscription?.remove()
+  }, [])
+
+  // Listen for navigation parameters that trigger analysis
+  React.useEffect(() => {
+    const params = route.params as { triggerAnalysis?: boolean; timestamp?: number } | undefined
+    if (params?.triggerAnalysis) {
+      console.log('🎯 Analysis triggered by navigation parameter:', params.timestamp)
+      
+      // Trigger analysis manually
+      const triggerAnalysis = async () => {
+        try {
+          console.log('🔍 Parameter-triggered analysis starting...')
+          
+          // Clear state for fresh start
+          dispatch(clearAnalysis())
+          currentAnalysisId.current = null
+          lastCheckedFile.current = null
+          isAnalyzing.current = false
+          
+          // Clean up old screenshots, keep only the newest
+          if (!hasCleanedUp.current) {
+            await clearOldScreenshots()
+            hasCleanedUp.current = true
+          }
+          
+          // Check for shared screenshot
+          const sharedScreenshotPath = await checkForSharedScreenshot()
+          
+          if (sharedScreenshotPath) {
+            if (isAnalyzing.current) {
+              console.log('📱 Analysis already in progress, skipping...')
+              return
+            }
+            
+            console.log('📱 Found shared screenshot from parameter trigger, starting analysis...')
+            lastCheckedFile.current = sharedScreenshotPath
+            startAnalysisWithSharedScreenshot(sharedScreenshotPath)
+          } else {
+            console.log('📱 No shared screenshot found from parameter trigger')
+            dispatch(setError('No screenshot found. Please share a screenshot using the iOS Share Sheet.'))
+          }
+        } catch (error) {
+          console.error('Error in parameter-triggered analysis:', error)
+          dispatch(setError('Failed to check for shared screenshot'))
+        }
+      }
+      
+      triggerAnalysis()
+    }
+  }, [route.params])
 
   // Check for shared screenshot when screen comes into focus
   useFocusEffect(
@@ -188,7 +320,7 @@ export const AnalyzeScreen: React.FC = () => {
           }
           lastFocusTime.current = now
           
-          console.log('🔍 Screen focused - checking for shared screenshot from Share Extension...')
+          console.log('🔍 Screen focused - checking launch method...')
           
           // Always clear state for fresh start (no back button now)
           dispatch(clearAnalysis())
@@ -198,30 +330,46 @@ export const AnalyzeScreen: React.FC = () => {
           isAnalyzing.current = false
           console.log('🔄 Cleared previous analysis state for fresh start')
           
-          // Clean up old screenshots, keep only the newest (just shared)
-          if (!hasCleanedUp.current) {
-            await clearOldScreenshots()
-            hasCleanedUp.current = true
-          }
+          // Check current URL state (might have been updated by URL listener)
+          console.log(`📱 Current Share Extension flag: ${isFromShareExtension.current}`)
           
-          // Check if there's a shared screenshot from Share Extension
-          const sharedScreenshotPath = await checkForSharedScreenshot()
-          
-          if (sharedScreenshotPath) {
-            // Prevent duplicate processing only if analysis is currently running
-            if (isAnalyzing.current) {
-              console.log('📱 Analysis already in progress, skipping...')
-              return
+          // Only check for screenshots if launched from Share Extension
+          if (isFromShareExtension.current) {
+            console.log('📱 Launched from Share Extension - checking for screenshots...')
+            
+            // Clean up old screenshots, keep only the newest (just shared)
+            if (!hasCleanedUp.current) {
+              await clearOldScreenshots()
+              hasCleanedUp.current = true
             }
             
-            console.log('📱 Found shared screenshot, starting analysis...')
-            // Set this IMMEDIATELY to prevent duplicate processing
-            lastCheckedFile.current = sharedScreenshotPath
-            // Start analysis with the shared screenshot
-            startAnalysisWithSharedScreenshot(sharedScreenshotPath)
+            // Check if there's a shared screenshot from Share Extension
+            const sharedScreenshotPath = await checkForSharedScreenshot()
+            
+            if (sharedScreenshotPath) {
+              // Prevent duplicate processing only if analysis is currently running
+              if (isAnalyzing.current) {
+                console.log('📱 Analysis already in progress, skipping...')
+                return
+              }
+              
+              console.log('📱 Found shared screenshot, starting analysis...')
+              // Set this IMMEDIATELY to prevent duplicate processing
+              lastCheckedFile.current = sharedScreenshotPath
+              // Start analysis with the shared screenshot
+              startAnalysisWithSharedScreenshot(sharedScreenshotPath)
+              // Reset flag after processing
+              isFromShareExtension.current = false
+            } else {
+              console.log('📱 No shared screenshot found from Share Extension')
+              dispatch(setError('No screenshot found. Please share a screenshot using the iOS Share Sheet.'))
+              // Reset flag after processing
+              isFromShareExtension.current = false
+            }
           } else {
-            console.log('📱 No shared screenshot found')
-            dispatch(setError('No screenshot found. Please share a screenshot using the iOS Share Sheet.'))
+            console.log('📱 Direct app launch - showing ready state')
+            // Don't dispatch anything - let it fall through to default "waiting" state
+            // This shows the nice instructions for how to use the app
           }
         } catch (error) {
           console.error('Error initializing analysis:', error)

@@ -15,6 +15,7 @@ export const JsonResultScreen: React.FC = () => {
     // Split text into lines and process each line
     const lines = text.split('\n')
     const elements: React.ReactNode[] = []
+    let isFirstHeader = true
     
     lines.forEach((line, index) => {
       const trimmedLine = line.trim()
@@ -22,10 +23,15 @@ export const JsonResultScreen: React.FC = () => {
       // Check if this line is a section header
       if (trimmedLine === 'Sender Check' || trimmedLine === 'Message Check' || trimmedLine === 'Action') {
         elements.push(
-          <Text key={index} style={[styles.resultText, styles.sectionHeader]}>
+          <Text key={index} style={[
+            styles.resultText, 
+            styles.sectionHeader,
+            isFirstHeader && styles.firstSectionHeader // Remove top margin for first header
+          ]}>
             {trimmedLine}
           </Text>
         )
+        isFirstHeader = false // Only the first header gets special treatment
       } else if (trimmedLine) {
         // Regular content line
         elements.push(
@@ -251,6 +257,9 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
     marginTop: 16,
     marginBottom: 8,
+  },
+  firstSectionHeader: {
+    marginTop: 0, // Remove top margin for first section header
   },
   metadataContainer: {
     margin: 20,

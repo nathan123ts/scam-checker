@@ -6,7 +6,7 @@ import { AnalyzeScreen, JsonResultScreen } from '../screens'
 
 // Define the navigation stack parameter list
 export type RootStackParamList = {
-  Analyze: undefined
+  Analyze: { triggerAnalysis?: boolean; timestamp?: number } | undefined
   Results: undefined
 }
 
@@ -20,9 +20,12 @@ export const AppNavigator: React.FC = () => {
     const handleURL = (url: string) => {
       console.log('🔗 AppNavigator received URL:', url)
       if (url.includes('scamchecker://analyze')) {
-        console.log('📱 New screenshot shared - navigating to AnalyzeScreen')
-        // Force navigation to AnalyzeScreen for new screenshot
-        navigationRef.current?.navigate('Analyze')
+        console.log('📱 New screenshot shared - navigating to AnalyzeScreen with trigger')
+        // Force navigation to AnalyzeScreen with analysis trigger
+        navigationRef.current?.navigate('Analyze', { 
+          triggerAnalysis: true, 
+          timestamp: Date.now() 
+        })
       }
     }
 
