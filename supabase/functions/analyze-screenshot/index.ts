@@ -1,5 +1,5 @@
 // Edge Function: analyze-screenshot
-// Analyzes screenshot images using OpenAI Vision API
+// Analyzes screenshot images using OpenAI GPT-5 Vision API
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -10,8 +10,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
-
-console.log("analyze-screenshot Edge Function loaded")
 
 interface OpenAIMessage {
   role: string;
@@ -97,22 +95,37 @@ async function analyzeImageWithOpenAI(imageUrl: string): Promise<string> {
 
   const messages: OpenAIMessage[] = [
     {
+      role: "system",
+      content: [
+        {
+          type: "text",
+          text: `You are a phishing scam and cyber security specialist. You protect clients from scams that start with text messages, emails, or similar communications. Your clients are typically not tech savvy and are ages 30+. They send you screenshots of messages they feel unsure about.
+
+For every screenshot you receive, you must:
+Analyze the sender (Reply-To in emails, phone number/shortcode in texts).
+Analyze the message contents.
+Decide if it is safe for the user to interact, or if they should avoid it.
+
+Rules:
+Always keep your explanation short, strict, and easy to read (as if for a 50-year-old non-technical parent).
+Use a consistent structure:
+Sender check
+Message check
+Action for user
+
+If safe: explain briefly why.
+If unsafe or unsure: always say "Do not click, do not reply, block it."
+Never tell the client to click links, call numbers, or reply directly to suspicious messages. Instead, direct them to the official app or website of the company.
+Be cautious. If there is any uncertainty, always default to telling the user not to interact.`
+        }
+      ]
+    },
+    {
       role: "user",
       content: [
         {
           type: "text",
-          text: `Analyze this screenshot for potential scams, phishing attempts, or fraudulent content. 
-
-Please examine:
-1. URLs and domain names for suspicious patterns
-2. Grammar, spelling, and language inconsistencies
-3. Urgency tactics or pressure techniques
-4. Requests for personal information, passwords, or financial details
-5. Suspicious sender information or contact methods
-6. Visual design inconsistencies with legitimate brands
-7. Any other red flags that indicate fraudulent activity
-
-Provide a detailed analysis explaining whether this appears to be a scam and why. Be specific about what elements make it suspicious or legitimate.`
+          text: `Here is a screenshot of a text or email I received. Tell me if it is safe to interact with and what I should do.`
         },
         {
           type: "image_url",
@@ -163,9 +176,14 @@ Provide a detailed analysis explaining whether this appears to be a scam and why
       console.log('  - Content Length:', data.choices[0].message.content?.length || 0)
     }
     
-    // Log the full raw response (truncated for readability)
+    // Log the complete raw response for easy copying
     const rawResponse = JSON.stringify(data, null, 2)
     console.log('📋 Raw OpenAI Response (first 1000 chars):', rawResponse.substring(0, 1000))
+    
+    // Output complete payload with clear markers for easy copying
+    console.log('🔥 COMPLETE_GPT5_PAYLOAD_START 🔥')
+    console.log(rawResponse)
+    console.log('🔥 COMPLETE_GPT5_PAYLOAD_END 🔥')
     
     if (!data.choices || data.choices.length === 0) {
       throw new Error('No response from OpenAI API')
@@ -174,10 +192,7 @@ Provide a detailed analysis explaining whether this appears to be a scam and why
     const analysis = data.choices[0].message.content
     console.log(`✅ OpenAI analysis completed successfully using ${modelName}`)
     
-    // Add model info to the response
-    const analysisWithModel = `**Analysis by ${modelName}:**\n\n${analysis}`
-    
-    return analysisWithModel
+    return analysis
 
   } catch (error) {
     console.error('Error calling OpenAI API:', error)

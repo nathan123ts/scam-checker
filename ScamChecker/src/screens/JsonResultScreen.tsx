@@ -1,23 +1,11 @@
 import React from 'react'
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native'
-import { useSelector, useDispatch } from 'react-redux'
-import { useNavigation } from '@react-navigation/native'
-import { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { RootState, AppDispatch } from '../store'
-import { clearAnalysis } from '../store/analysisSlice'
-import { RootStackParamList } from '../navigation'
-
-type JsonResultScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Results'>
+import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native'
+import { useSelector } from 'react-redux'
+import { RootState } from '../store'
 
 export const JsonResultScreen: React.FC = () => {
-  const dispatch = useDispatch<AppDispatch>()
-  const navigation = useNavigation<JsonResultScreenNavigationProp>()
   const { result, analysisId } = useSelector((state: RootState) => state.analysis)
 
-  const handleStartNewAnalysis = () => {
-    dispatch(clearAnalysis())
-    navigation.navigate('Analyze')
-  }
 
   // Format the analysis result for better readability
   const formatAnalysisResult = (text: string): string => {
@@ -90,7 +78,6 @@ export const JsonResultScreen: React.FC = () => {
         showsVerticalScrollIndicator={true}
       >
         <View style={styles.resultContainer}>
-          <Text style={styles.resultLabel}>GPT-4o Analysis:</Text>
           <Text style={styles.resultText}>
             {formattedResult}
           </Text>
@@ -100,7 +87,7 @@ export const JsonResultScreen: React.FC = () => {
         <View style={styles.metadataContainer}>
           <Text style={styles.metadataLabel}>Analysis Details</Text>
           <Text style={styles.metadataText}>
-            • Model: GPT-4o with Vision{'\n'}
+            • Model: GPT-5 with Vision{'\n'}
             • Analysis ID: {analysisId || 'N/A'}{'\n'}
             • Status: Completed{'\n'}
             • Timestamp: {new Date().toLocaleString()}
@@ -108,17 +95,6 @@ export const JsonResultScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* Action Button */}
-      <View style={styles.actionContainer}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={handleStartNewAnalysis}
-        >
-          <Text style={styles.actionButtonText}>
-            Analyze Another Screenshot
-          </Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   )
 }
@@ -202,12 +178,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  resultLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 12,
-  },
   resultText: {
     fontSize: 16,
     lineHeight: 24,
@@ -234,24 +204,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#6c757d',
     fontFamily: 'Courier',
-  },
-  actionContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e1e5e9',
-  },
-  actionButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 })
 

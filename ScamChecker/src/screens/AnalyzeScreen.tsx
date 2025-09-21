@@ -156,7 +156,6 @@ export const AnalyzeScreen: React.FC = () => {
           <Text style={styles.subtitle}>Analysis Failed</Text>
           
           <View style={styles.errorContainer}>
-            <Text style={styles.errorIcon}>⚠️</Text>
             <Text style={styles.errorMessage}>{error}</Text>
             <Text style={styles.errorHint}>
               Please try again or check your internet connection
@@ -176,15 +175,11 @@ export const AnalyzeScreen: React.FC = () => {
           <Text style={styles.subtitle}>Analysis Complete</Text>
           
           <View style={styles.successContainer}>
-            <Text style={styles.successIcon}>✅</Text>
             <Text style={styles.successMessage}>
               Screenshot analyzed successfully
             </Text>
             <Text style={styles.analysisId}>
               Analysis ID: {analysisId.substring(0, 8)}...
-            </Text>
-            <Text style={styles.resultPreview}>
-              {result.substring(0, 150)}...
             </Text>
           </View>
         </View>
@@ -247,10 +242,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
   errorMessage: {
     fontSize: 16,
     color: '#FF3B30',
@@ -267,10 +258,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  successIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
   successMessage: {
     fontSize: 18,
     color: '#34C759',
@@ -283,13 +270,6 @@ const styles = StyleSheet.create({
     color: '#999',
     marginBottom: 16,
     fontFamily: 'Courier',
-  },
-  resultPreview: {
-    fontSize: 14,
-    color: '#333',
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 10,
   },
 })
 

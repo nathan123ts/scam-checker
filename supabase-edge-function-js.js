@@ -143,10 +143,7 @@ Provide a detailed analysis explaining whether this appears to be a scam and why
     const analysis = data.choices[0].message.content
     console.log(`✅ OpenAI analysis completed successfully using ${modelName}`)
     
-    // Add model info to the response
-    const analysisWithModel = `**Analysis by ${modelName}:**\n\n${analysis}`
-    
-    return analysisWithModel
+    return analysis
 
   } catch (error) {
     console.error('Error calling OpenAI API:', error)

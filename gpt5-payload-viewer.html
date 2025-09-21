@@ -1,0 +1,54 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT-5 Payload Viewer</title>
+    <style>
+        body { font-family: monospace; margin: 20px; background: #1e1e1e; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .payload { background: #2d2d2d; padding: 20px; border-radius: 8px; overflow-x: auto; }
+        .highlight { color: #4fc3f7; }
+        .string { color: #a5d6a7; }
+        .number { color: #ffb74d; }
+        .key { color: #f06292; }
+        h1 { color: #4fc3f7; }
+        .instructions { background: #333; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 GPT-5 Payload Viewer</h1>
+        
+        <div class="instructions">
+            <h3>📋 How to View Real GPT-5 Payload:</h3>
+            <ol>
+                <li>Test the ScamChecker app (share a screenshot)</li>
+                <li>Go to Supabase Dashboard → Edge Functions → analyze-screenshot → Logs</li>
+                <li>Find logs with "COMPLETE_GPT5_PAYLOAD_START"</li>
+                <li>Copy the JSON between START and END markers</li>
+                <li>Replace the content in <code>gpt5-payload.json</code></li>
+                <li>Refresh this page to see the formatted payload</li>
+            </ol>
+        </div>
+        
+        <div class="payload">
+            <pre id="payload-content">Loading payload...</pre>
+        </div>
+    </div>
+    
+    <script>
+        // Load and display the payload
+        fetch('./gpt5-payload.json')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('payload-content').textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(error => {
+                document.getElementById('payload-content').textContent = 'Error loading payload: ' + error.message;
+            });
+    </script>
+</body>
+</html>
+  
